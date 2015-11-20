@@ -1,10 +1,19 @@
 package offline;
 
-import java.util.ArrayList;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 public class CentralSlicer {
+	
+	static Computation E = new Computation();
+	
+	static void addEvent(Event e) {
+		E.add(e, true);
+	}
+	
 	/*
 		foreach event e in computation:
 			find the least consistent cut that satisfies B and includes e
@@ -22,7 +31,7 @@ public class CentralSlicer {
 	 * Input: computation (E,->), regular predicate b
 	 * Output: JB(e) for each event e
 	 * 
-	 * C = empty
+	 * C = initial values
 	 * for each event e
 	 * 	done = false
 	 * 	if C = E then done = true
@@ -38,8 +47,8 @@ public class CentralSlicer {
 	 * 				C = C union succ(f) //advance beyond f
 	 * 	JB(e) = C
 	 */
-	Map<Event,Computation> ComputeJ (Computation E, String b, int pid) {
-		Computation C = new Computation();
+	static Map<Event,Computation> ComputeJ (int pid) {
+		Computation C = new Computation(E);
 		Map<Event,Computation> JB = new HashMap<>();
 		for (Event e : E.events) {
 			if (e.pid == pid) {
@@ -49,14 +58,14 @@ public class CentralSlicer {
 				}
 				while (!done) {
 					Computation front = C.frontier(E);
-					if (front.getInconsistentEvent().pid == -1) {
+					if (front.getInconsistentEvent().pid != -1) {
 						Event f = front.getInconsistentEvent();
 						C.add(E.succ(f), false);
 					} else {
-						if (C.equals(E) || C.satisfies(b)) {
+						if (C.equals(E) || C.satisfies(E)) {
 							done = true;
 						} else {
-							Event f = C.forbidden(b);
+							Event f = C.forbidden(E);
 							C.add(E.succ(f), false);
 						}
 					}
@@ -67,112 +76,6 @@ public class CentralSlicer {
 		return JB;
 	}
 	
-	class Computation {
-		ArrayList<Event> events;
-		Event recent[] = new Event[2];
-		
-		@Override
-		public boolean equals(Object obj) {
-			Computation E = (Computation) obj;
-			if (E.events.size() == events.size()) {
-				for (Event e : events) {
-					if (!E.events.contains(e)) {
-						return false;
-					}
-				}
-				return true;
-			}
-			return false;
-		}
-		Computation frontier(Computation E) {
-			Computation front = new Computation();
-			for (Event e : E.events) {
-				if (events.contains(e) && !events.contains(succ(e))) {
-					front.add(e, false);
-				}
-			}
-			return front;
-		}
-		
-		Event getInconsistentEvent() {
-			Event e = new Event();
-			e.pid = -1;
-			for (Event g : events) {
-				for (Event f : events) {
-					if (succ(f).timestamp < g.timestamp) {
-						e.pid = f.pid;
-						e.timestamp = f.timestamp;
-						e.value = f.value;
-					}
-				}
-			}
-			return e;
-		}
-		
-		void add(Event e, boolean setSucc) {
-			if (setSucc) {
-				int pid = e.pid;
-				if (recent[pid] == null || recent[pid] == new Event()) {
-					recent[pid] = e;
-				} else {
-					for (Event ev : events) {
-						if (ev.equals(recent[pid])) {
-							ev.successor = e;
-						}
-					}
-					recent[pid] = e;
-				}
-			}
-			events.add(e);
-		}
-		
-		boolean satisfies (String b) {
-			return false;
-		}
-		
-		Event forbidden(String b) {
-			return new Event();
-		}
-		
-		Event succ(Event f) {
-			return f.successor;
-		}
-		
-		Event first(int pid) {
-			Event first = null;
-			for (Event e : events) {
-				if (e.pid == pid) {
-					if (first == null) {
-						first = e;
-					}
-					if (first.timestamp < e.timestamp) {
-						first = e;
-					}
-				}
-			}
-			return first;
-		}
-	}
-	
-	class Event {
-		int value;
-		int timestamp;
-		int pid;
-		Event successor;
-		
-		@Override
-		public boolean equals (Object obj) {
-			Event e = (Event)obj;
-			if (value == e.value) {
-				if (timestamp == e.timestamp) {
-					if (pid == e.pid) {
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-	}
 	/*
 	 * ComputeF
 	 * 
@@ -187,13 +90,14 @@ public class CentralSlicer {
 	 * 		FB(e)[i] = f
 	 */
 	
-	Map<Event,Event>[] ComputeF (Computation E, Map<Event,Computation>[] JB, int pid) {
-		Map<Event, Event>[] FB = new HashMap[3];
-		for (int i=0; i<3; i++) {
-			Event f = E.first(i);
+	static Map<Event,Event>[] ComputeF (Map<Event,Computation>[] JB, int pid) {
+		Map<Event, Event>[] FB = new HashMap[4];
+		for (int i=1; i<=3; i++) {
+			Event f = E.initial[i];
+			FB[i] = new HashMap<Event, Event>();
 			for (Event e : E.events) {
 				if (e.pid == pid) {
-					while (!JB[i].get(f).events.contains(e)) {
+					while (!JB[i].get(f).events.contains(e) && !E.recent[i].equals(f)) {
 						f = E.succ(f);
 					}
 					FB[i].put(e,f);
@@ -215,16 +119,53 @@ public class CentralSlicer {
 	 * output SB(E)
 	 */
 	
-	Computation SliceForRegular(Computation E, String b) {
-		Map<Event, Computation>[] JB = null;
-		Map<Event, Event>[][] FB = null;
-		for (int pid=0; pid<3; pid++) {
-			JB[pid] = ComputeJ(E,b,pid);
+	static Computation SliceForRegular() {
+		Map<Event, Computation>[] JB = new HashMap[4];
+		Map<Event, Event>[][] FB = new HashMap[4][4];
+		for (int pid=1; pid<=3; pid++) {
+			JB[pid] = ComputeJ(pid);
 		}
-		for (int pid=0; pid<3; pid++) {
-			FB[pid] = ComputeF(E,JB,pid);
+		for (int pid=1; pid<=3; pid++) {
+			FB[pid] = ComputeF(JB,pid);
+		}
+		for (int pid=1; pid<=3; pid++) {
+			for (int j=1; j<=3; j++) {
+				for (Event e : FB[pid][j].keySet()) {
+					System.out.println(e.id + " " + e.value + ", " + FB[pid][j].get(e).id + " " + FB[pid][j].get(e).value);
+				}
+				System.out.println("\n");
+			}
 		}
 		Computation SB = new Computation();
 		return SB;
+	}
+	
+	@SuppressWarnings("resource")
+	public static void main (String[] args) {
+		try{
+			int uid = 0;
+			for (int id=1; id<4; id++) {
+				BufferedReader input = new BufferedReader(new FileReader("C:\\Users\\Erik\\Documents\\GitHub\\DistributedSlicing\\CentralizedSlicing\\src\\output" + id + ".txt"));
+				String line;
+				Event e = new Event();
+				e.pid = id;
+				while((line = input.readLine()) != null){
+					if (line.contains(",")) {
+						String[] split = line.split(",");
+						e.timestamp.put(Integer.parseInt(split[0]), Integer.parseInt(split[1]));
+					} else if (line.equals("")){
+						e.id = uid++;
+						addEvent(e);
+						e = new Event();
+						e.pid = id;
+					} else {
+						e.value = Integer.parseInt(line);
+					}
+				}
+			}
+		} catch (IOException ie) {
+			System.err.println(ie);
+		}
+		SliceForRegular();
 	}
 }
