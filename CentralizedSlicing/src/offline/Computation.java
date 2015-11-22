@@ -22,6 +22,15 @@ public class Computation {
 	@Override
 	public boolean equals(Object obj) {
 		Computation E = (Computation) obj;
+		Computation front = this.frontier(E);
+		int count = 0;
+		for (Event e : front.events) {
+			if (e.equals(E.recent[e.pid])) {
+				count++;
+			}
+		}
+		return count == 3;
+		/*
 		if (E.events.size() == events.size()) {
 			for (Event e : events) {
 				if (!E.events.contains(e)) {
@@ -31,13 +40,16 @@ public class Computation {
 			return true;
 		}
 		return false;
+		*/
 	}
 	
 	Computation frontier(Computation E) {
 		Computation front = new Computation();
 		for (Event e : E.events) {
 			if (E.recent[e.pid].equals(e)) {
-				//front.add(e,false);
+				if (events.contains(e)) {
+					front.add(e,false);
+				}
 			} else if (events.contains(e) && !events.contains(succ(e))) {
 				front.add(e, false);
 			}
@@ -56,6 +68,7 @@ public class Computation {
 						e.timestamp = f.timestamp;
 						e.value = f.value;
 						e.id = f.id;
+						e.successor = f.successor;
 					}
 				}
 			}
@@ -84,17 +97,22 @@ public class Computation {
 	}
 	
 	//b = (x1 >= 1) and (x3 <= 3)
-	boolean satisfies (Computation E) {
+	boolean satisfies (Computation E, Event e) {
 		Computation front = frontier(E);
 		int sat = 0;
-		for (Event e : front.events) {
-			if (e.pid == 1) {
-				if (e.value >= 1) {
+		for (Event ev : front.events) {
+			if (ev.pid == e.pid) {
+				if (ev.id < e.id) {
+					return false;
+				}
+			}
+			if (ev.pid == 1) {
+				if (ev.value >= 1) {
 					sat++;
 				}
 			}
-			if (e.pid == 3) {
-				if (e.value <= 3) {
+			if (ev.pid == 3) {
+				if (ev.value <= 3) {
 					sat++;
 				}
 			}
@@ -105,17 +123,22 @@ public class Computation {
 		return false;
 	}
 	
-	Event forbidden(Computation E) {
+	Event forbidden(Computation E, Event e) {
 		Computation front = frontier(E);
-		for (Event e : front.events) {
-			if (e.pid == 1) {
-				if (e.value < 1) {
-					return e;
+		for (Event ev : front.events) {
+			if (ev.pid == e.pid) {
+				if (ev.id < e.id) {
+					return ev;
 				}
 			}
-			if (e.pid == 3) {
-				if (e.value > 3) {
-					return e;
+			if (ev.pid == 1) {
+				if (ev.value < 1) {
+					return ev;
+				}
+			}
+			if (ev.pid == 3) {
+				if (ev.value > 3) {
+					return ev;
 				}
 			}
 		}
@@ -123,21 +146,9 @@ public class Computation {
 	}
 	
 	Event succ(Event f) {
+		//if (f.successor == null) {
+		//	return f;
+		//}
 		return f.successor;
-	}
-	
-	Event first(int pid) {
-		Event first = null;
-		for (Event e : events) {
-			if (e.pid == pid) {
-				if (first == null) {
-					first = e;
-				}
-				if (first.happenedBefore(e)) {
-					first = e;
-				}
-			}
-		}
-		return first;
 	}
 }

@@ -23,26 +23,22 @@ public class Event {
 		if (e == null) {
 			return false;
 		}
-		if (value == e.value) {
-			if (timestamp == e.timestamp) {
-				if (pid == e.pid) {
-					return true;
-				}
-			}
-		}
-		return false;
+		return id == e.id;
+	}
+	
+	@Override
+	public int hashCode () {
+		return this.id;
 	}
 	
 	boolean happenedBefore(Event e) {
 		boolean oneSmaller = false;
 		for (int t : this.timestamp.keySet()) {
-			for (int te : e.timestamp.keySet()) {
-				if (this.timestamp.get(t) > e.timestamp.get(te)) {
-					return false;
-				}
-				if (this.timestamp.get(t) < e.timestamp.get(te)) {
-					oneSmaller = true;
-				}
+			if (this.timestamp.get(t) > e.timestamp.get(t)) {
+				return false;
+			}
+			if (this.timestamp.get(t) < e.timestamp.get(t)) {
+				oneSmaller = true;
 			}
 		}
 		if (oneSmaller) {
