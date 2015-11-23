@@ -1,6 +1,7 @@
 package online;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
 public class Computation {
 	ArrayList<Event> events = new ArrayList<Event>();
@@ -89,11 +90,17 @@ public class Computation {
 				recent[pid].timestamp.put(e.pid, v+1);
 				e.successor = recent[pid];
 			} else {
-				for (Event ev : events) {
+				Iterator<Event> iter = events.iterator();
+				boolean rem = false;
+				while (iter.hasNext()) {
+					Event ev = iter.next();
 					if (ev.successor.equals(recent[pid])) {
 						ev.successor = e;
-						events.remove(recent[pid]);
+						rem = true;
 					}
+				}
+				if (rem) {
+					events.remove(recent[pid]);
 				}
 				e.id = recent[pid].id;
 				recent[pid] = e;

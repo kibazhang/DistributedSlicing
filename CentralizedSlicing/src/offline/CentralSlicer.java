@@ -15,39 +15,6 @@ public class CentralSlicer {
 		E.add(e, true);
 	}
 	
-	/*
-		foreach event e in computation:
-			find the least consistent cut that satisfies B and includes e
-			
-		One process acts as the central slicer - CS
-		Each process Pi sends details (state/vector clock etc.) of relevant events to CS
-	*/
-
-	//online - maintain queue of other process events. When data is received, add it to the queue.
-	//	For each event calculate JB(e) using the linearity property
-	
-	/*
-	 * ComputeJ
-	 * 
-	 * Input: computation (E,->), regular predicate b
-	 * Output: JB(e) for each event e
-	 * 
-	 * C = initial values
-	 * for each event e
-	 * 	done = false
-	 * 	if C = E then done = true
-	 * 	while !done:
-	 * 		if there exists events f and g in frontier(C) such that 
-	 * 			succ(f) -> g then //C is not a consistent cut
-	 * 			C = C union succ(f) //advance beyond f to next event on this process
-	 * 		else
-	 * 			if (C=E) or (C staisfies bc) then
-	 * 				done = true
-	 * 			else
-	 * 				f = forbidden(bc,C) //invoke the linearity property
-	 * 				C = C union succ(f) //advance beyond f
-	 * 	JB(e) = C
-	 */
 	static Map<Event,Computation> ComputeJ (int pid) {
 		Computation C = new Computation(E);
 		Map<Event,Computation> JB = new HashMap<>();
@@ -84,20 +51,6 @@ public class CentralSlicer {
 		return JB;
 	}
 	
-	/*
-	 * ComputeF
-	 * 
-	 * Input: computation (E,->), JB(e)
-	 * Output: FB(e) for each event
-	 * 
-	 * for each process in the system
-	 * 	f = empty
-	 * 	for each event in this process //visited in order given by ->p
-	 * 		while JB(e) is not a subset of JB(f) //check if e is in JB(f)
-	 * 			f = succ(f)
-	 * 		FB(e)[i] = f
-	 */
-	
 	@SuppressWarnings("unchecked")
 	static Map<Event,Event>[] ComputeF (Map<Event,Computation>[] JB, int pid) {
 		Map<Event, Event>[] FB = new HashMap[4];
@@ -119,18 +72,6 @@ public class CentralSlicer {
 		return FB;
 	}
 	
-	/*
-	 * SliceForRegular
-	 * 
-	 * Input: computation (E,->), regular predicate b
-	 * Output: slice (E,->)b
-	 * 
-	 * compute JB(e) for each event e using ComputeJ
-	 * compute JB(e) for each event e using ComputeF
-	 * construct SB(E) the skeletal representation of (E,->)b
-	 * output SB(E)
-	 */
-	
 	static Computation ComputeSlice() {
 		Map<Event, Computation>[] JB = new HashMap[4];
 		Map<Event, Event>[][] FB = new HashMap[4][4];
@@ -146,8 +87,6 @@ public class CentralSlicer {
 			for (int j=1; j<=3; j++) {
 				for (Event e : FB[pid][j].keySet()) {
 					if (JB[pid].get(e).satisfies(E, e) && !E.initial[pid].equals(e)) {
-						//System.out.println(e.id + " " + e.value + ", " + FB[pid][j].get(e).id + " " + FB[pid][j].get(e).value);
-						//System.out.println(e.id + " -> " + FB[pid][j].get(e).id);
 						temp.add(e.id + "," + FB[pid][j].get(e).id);
 					} else if (!ignore.contains(e.id)){
 						ignore.add(e.id);
@@ -170,7 +109,7 @@ public class CentralSlicer {
 		try{
 			int uid = 0;
 			for (int id=1; id<4; id++) {
-				BufferedReader input = new BufferedReader(new FileReader("C:\\Users\\Erik\\Documents\\GitHub\\DistributedSlicing\\CentralizedSlicing\\src\\output" + id + ".txt"));
+				BufferedReader input = new BufferedReader(new FileReader(".\\output" + id + ".txt"));
 				String line;
 				Event e = new Event();
 				while((line = input.readLine()) != null){
@@ -180,6 +119,8 @@ public class CentralSlicer {
 					} else if (line.equals("")){
 						e.id = uid++;
 						e.pid = id;
+						Monitor.incrementCount();
+						Monitor.EMemory();
 						addEvent(e);
 						e = new Event();
 					} else {
@@ -195,5 +136,7 @@ public class CentralSlicer {
 			System.err.println(ie);
 		}
 		ComputeSlice();
+		Monitor.printMemory();
+		Monitor.printMsgCount();
 	}
 }

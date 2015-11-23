@@ -54,7 +54,13 @@ public class Adder {
 	
 	public static void main (String[] args) {
 		Map<Integer, ArrayList<String>> serverMap = new HashMap<>();
-		myID = Integer.parseInt(args[1]);
+		if (args.length > 1)
+			myID = Integer.parseInt(args[1]);
+		else
+			myID = 1;
+		args = new String[2];
+		args[1] = "1";
+		args[0] = "C:\\Users\\Erik\\Documents\\GitHub\\DistributedSlicing\\DistributedSlicingOnline\\available_servers.txt";
 		if(args.length > 0) {
 			try{
 				BufferedReader server_file = new BufferedReader(new FileReader(args[0]));
@@ -115,7 +121,7 @@ public class Adder {
 					OutMap.put("VectorClock", VectorClock);
 					OutMap.put("data", data);
 					try {
-						Socket clientSocket = new Socket(serverMap.get(Integer.parseInt(st[1])-1).get(0),Integer.parseInt(serverMap.get(Integer.parseInt(st[1])-1).get(1)));
+						Socket clientSocket = new Socket(serverMap.get(Integer.parseInt(st[1])).get(0),Integer.parseInt(serverMap.get(Integer.parseInt(st[1])).get(1)));
 						Socket slicerSocket = new Socket(centralSlicerHostname, centralSlicerPort);
 						OutputStream toServer = new DataOutputStream(clientSocket.getOutputStream()); // OutputStream where to send the map in case of network you get it from the Socket instance.
 						OutputStream toSlicer = new DataOutputStream(slicerSocket.getOutputStream());
